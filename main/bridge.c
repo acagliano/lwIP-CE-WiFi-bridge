@@ -16,6 +16,12 @@
 #define TAG "bridge"
 #define CALC_VID 0x16C0
 #define CALC_PID 0x05E1
+/* The calculator exposes configuration 1 as CDC-ECM (for a general-purpose
+ * computer, which cannot be told which configuration to pick) and
+ * configuration 2 as CDC-ACM, which is this bridge's transport. ESP-IDF would
+ * otherwise enumerate configuration 1 and cdc_acm_host_open() would find no
+ * ACM interface. See calc_enum_filter(). */
+#define CALC_CONFIG_ACM 2
 #define FRAME_MIN 14
 #define FRAME_MAX 1514
 #define USB_MPS 64
@@ -254,6 +260,27 @@ static void cdc_new_device(usb_device_handle_t device)
     }
 }
 
+/* Chooses which configuration ESP-IDF enumerates. Called before enumeration,
+ * when only the device descriptor is available, so the calculator is
+ * recognised by VID/PID -- the same test cdc_new_device() applies later.
+ *
+ * Must stay non-blocking and must not submit USB transfers.
+ */
+#if CONFIG_USB_HOST_ENABLE_ENUM_FILTER_CALLBACK
+static bool calc_enum_filter(const usb_device_desc_t *dev_desc,
+                             uint8_t *bConfigurationValue)
+{
+    if (dev_desc != NULL && bConfigurationValue != NULL &&
+        dev_desc->idVendor == CALC_VID && dev_desc->idProduct == CALC_PID) {
+        *bConfigurationValue = CALC_CONFIG_ACM;
+    }
+    /* Anything else keeps ESP-IDF's default, which pre-fills
+     * bConfigurationValue with the device's first configuration. Never return
+     * false here, or unrelated devices stop enumerating entirely. */
+    return true;
+}
+#endif
+
 static void usb_lib_task(void *arg)
 {
     (void)arg;
@@ -369,6 +396,9 @@ esp_err_t bridge_init(void)
 {
     const usb_host_config_t host_config = {
         .intr_flags = ESP_INTR_FLAG_LEVEL1,
+#if CONFIG_USB_HOST_ENABLE_ENUM_FILTER_CALLBACK
+        .enum_filter_cb = calc_enum_filter,
+#endif
     };
     const cdc_acm_host_driver_config_t driver_config = {
         .driver_task_stack_size = 4096,

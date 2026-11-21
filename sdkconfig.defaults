@@ -11,3 +11,7 @@ CONFIG_USB_HOST_DEBOUNCE_DELAY_MS=350
 CONFIG_USB_HOST_RESET_HOLD_MS=50
 CONFIG_USB_HOST_RESET_RECOVERY_MS=100
 CONFIG_USB_HOST_SET_ADDR_RECOVERY_MS=20
+
+# Lets bridge_init() install calc_enum_filter() so the calculator's CDC-ACM
+# configuration (2) is selected instead of its CDC-ECM one (1). Default is n.
+CONFIG_USB_HOST_ENABLE_ENUM_FILTER_CALLBACK=y
