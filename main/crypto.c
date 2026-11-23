@@ -85,26 +85,47 @@ static uint8_t p256(const uint8_t *in, size_t in_len, uint8_t *out, size_t *used
     return CTL_ST_OK;
 }
 
-static uint8_t ecdsa_verify(const uint8_t *in)
+static uint8_t ecdsa_verify(const uint8_t *in, size_t n, psa_algorithm_t hash)
 {
     psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
-    psa_algorithm_t alg = PSA_ALG_ECDSA(PSA_ALG_SHA_256);
+    psa_algorithm_t alg = PSA_ALG_ECDSA(hash);
     psa_key_id_t key;
     psa_status_t err;
 
     psa_set_key_type(&attributes, PSA_KEY_TYPE_ECC_PUBLIC_KEY(PSA_ECC_FAMILY_SECP_R1));
-    psa_set_key_bits(&attributes, 256);
+    psa_set_key_bits(&attributes, n * 8);
     psa_set_key_usage_flags(&attributes, PSA_KEY_USAGE_VERIFY_HASH);
     psa_set_key_algorithm(&attributes, alg);
-    if (psa_import_key(&attributes, in + 32, 65, &key) != PSA_SUCCESS) {
+    if (psa_import_key(&attributes, in + n, 2 * n + 1, &key) != PSA_SUCCESS) {
         return CTL_ST_BAD_REQUEST;
     }
-    err = psa_verify_hash(key, alg, in, 32, in + 97, 64);
+    err = psa_verify_hash(key, alg, in, n, in + 3 * n + 1, 2 * n);
     psa_destroy_key(key);
     if (err == PSA_SUCCESS) {
         return CTL_ST_OK;
     }
     return err == PSA_ERROR_INVALID_SIGNATURE ? CTL_ST_REJECTED : CTL_ST_BAD_REQUEST;
+}
+
+static uint8_t sha(const uint8_t *in, size_t in_len, uint8_t *out, size_t *used)
+{
+    psa_algorithm_t alg;
+
+    switch (in[0]) {
+    case CTL_SHA384:
+        alg = PSA_ALG_SHA_384;
+        break;
+    case CTL_SHA512:
+        alg = PSA_ALG_SHA_512;
+        break;
+    default:
+        return CTL_ST_BAD_REQUEST;
+    }
+    if (psa_hash_compute(alg, in + 1, in_len - 1, out, 64, used) != PSA_SUCCESS) {
+        *used = 0;
+        return CTL_ST_BAD_REQUEST;
+    }
+    return CTL_ST_OK;
 }
 
 static size_t der_length(uint8_t *out, size_t length)
@@ -218,7 +239,8 @@ static void handle(const uint8_t *frame, size_t length)
         const char *version = esp_app_get_description()->version;
         size_t length = strnlen(version, LWIP_WIFI_VERSION_MAX);
 
-        out[0] = CTL_CAP_X25519 | CTL_CAP_RSA | CTL_CAP_RANDOM | CTL_CAP_P256;
+        out[0] = CTL_CAP_X25519 | CTL_CAP_RSA | CTL_CAP_RANDOM | CTL_CAP_P256 | CTL_CAP_P384 |
+                 CTL_CAP_SHA512;
         out[1] = (uint8_t)length;
         memcpy(out + 2, version, length);
         used = 2 + length;
@@ -241,7 +263,17 @@ static void handle(const uint8_t *frame, size_t length)
         break;
     case CTL_OP_ECDSA_VERIFY:
         if (in_len == 161) {
-            status = ecdsa_verify(in);
+            status = ecdsa_verify(in, 32, PSA_ALG_SHA_256);
+        }
+        break;
+    case CTL_OP_ECDSA_P384_VERIFY:
+        if (in_len == 241) {
+            status = ecdsa_verify(in, 48, PSA_ALG_SHA_384);
+        }
+        break;
+    case CTL_OP_SHA:
+        if (in_len >= 1 && in_len <= 1 + CTL_SHA_MAX) {
+            status = sha(in, in_len, out, &used);
         }
         break;
     case CTL_OP_RANDOM:
@@ -277,7 +309,7 @@ bool crypto_request(const uint8_t *frame, size_t length)
 {
     request_t *request;
 
-    if (frame[15] < CTL_OP_INFO || frame[15] > CTL_OP_ECDSA_VERIFY) {
+    if (frame[15] < CTL_OP_INFO || frame[15] > CTL_OP_SHA) {
         return false;
     }
     request = malloc(sizeof *request + length);

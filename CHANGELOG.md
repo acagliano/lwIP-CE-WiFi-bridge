@@ -6,6 +6,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Crypto offload for ECDSA P-384 signature checks and SHA-384/SHA-512 hashing.
+
 ## [1.0.1] - 2026-10-27
 
 ### Fixed
