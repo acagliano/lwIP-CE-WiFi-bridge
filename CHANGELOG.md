@@ -6,6 +6,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-23
+
 ### Added
 
 - Crypto offload for ECDSA P-384 signature checks and SHA-384/SHA-512 hashing.
@@ -25,6 +27,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [lwIP-CE](https://github.com/cagscalclabs/lwip-ce).
 - Bridge board hardware: KiCad project, fabrication files and enclosure.
 
-[Unreleased]: https://github.com/alessiodam/lwIP-CE-WiFi-bridge/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/alessiodam/lwIP-CE-WiFi-bridge/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/alessiodam/lwIP-CE-WiFi-bridge/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/alessiodam/lwIP-CE-WiFi-bridge/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/alessiodam/lwIP-CE-WiFi-bridge/releases/tag/v1.0.0
